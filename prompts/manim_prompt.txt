@@ -12,12 +12,14 @@
 - 颜色使用预定义常量（如 BLUE, RED, GREEN, YELLOW, PURPLE）或 HEX 字符串（如 "#58C4DD"）。
 - 对象组织优先使用 VGroup、HGroup 或 Group。
 - 布局合理：公式居中、动画流畅渐进、强调关键部分（使用围框、颜色变化、箭头等）。
+- 避免重叠：确保图形元素、文字和公式之间有足够的间距，避免视觉重叠。使用 arranges() 方法合理安排元素位置，或通过坐标精确定位。
 - 背景默认黑色（Manim 默认），分辨率 1920x1080，无需手动修改配置。
 - 避免任何可能导致运行时错误的写法：变量必须先定义、mobject 必须正确创建、无未导入的类或方法。
 - 几何结构必须数学上绝对精确：使用向量计算、get_center()、get_corner()、精确旋转角度，避免任何硬编码偏移（如 1.5、[1,1,0]）。
 - 关键揭示动画必须丝滑自然：优先使用 Transform、ReplacementTransform、MoveToTarget，结合 Indicate 或 SurroundingRectangle 强调。
 - 所有正方形、三角形、多边形必须完美贴合，无视觉空隙或重叠。
 - 坐标轴类动画必须使用 Axes、NumberPlane，并合理设置范围和刻度。
+- 动画流程必须逻辑连贯：每个动画段落之间应有清晰的过渡，避免突然的跳跃或元素位置的混乱。
 
 禁止使用的已废弃/旧 API（常见错误来源）：
 - TexMobject, TextMobject

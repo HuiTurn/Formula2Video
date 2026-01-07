@@ -1,19 +1,48 @@
-# Python-generated files
+```
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Python
 __pycache__/
-*.py[oc]
+*.pyc
+*.pyo
+*.pyd
+.Python
+python-eggs/
+
+# Build directories
 build/
 dist/
-wheels/
-*.egg-info
+*.egg-info/
 
 # Virtual environments
-.venv
-.env
+venv/
+.venv/
+env/
+.ENV
 
-# Generated files
-audio/
-media/
-output/
-*.mp3
+# Coverage
+.coverage
+coverage/
+htmlcov/
 
-.cursor/
+# Testing
+.pytest_cache/
+.mypy_cache/
+.tox/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+```

@@ -12,6 +12,7 @@
 - 优先使用现代 API：MathTex()（公式优先）、Tex()、Create()、Write()、FadeIn()、FadeOut()、Transform()、ReplacementTransform() 等。
 - 颜色使用 BLUE, RED, GREEN 等常量或 HEX 字符串。
 - 对象组织使用 VGroup、HGroup 或 Group。
+- 修复重叠问题：确保图形元素、文字和公式之间有足够的间距，避免视觉重叠。使用 arranges() 方法合理安排元素位置，或通过坐标精确定位。
 - 修复常见错误：替换 TexMobject → MathTex，ShowCreation → Create，变量未定义 → 先创建 mobject 等。
 
 禁止使用已废弃/旧 API：

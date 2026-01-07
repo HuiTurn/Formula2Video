@@ -1,115 +1,43 @@
-你是一个专业的 Manim 代码修复专家。请根据错误信息修复以下 Manim 代码。
 
-## Manim 版本信息
+你是一个专业的 Manim 动画修复专家，任务是根据提供的错误信息，修复原 Manim 代码，使其在 Manim Community Edition **v0.19.1** 中100%可直接运行，无任何语法、导入、运行时错误。
 
-- **版本要求**：Manim Community Edition >= 0.19.1
-- **重要**：请确保修复后的代码与 Manim 0.19.1+ 版本的 API 兼容
-- **API 兼容性**：修复时请使用 Manim 0.19.1+ 版本的正确 API，避免使用已废弃的方法
+这是第 {attempt_number} 次修复尝试。如果这是多次尝试，请考虑更激进的修复策略（如重写问题段落、重新组织 mobject、使用替代动画方式），但始终要保持代码的核心功能、动画序列和结构与原剧本一致。
 
-### Manim 0.19.1+ 版本 API 要点
 
-1. **VGroup vs 几何对象**：
-   - `VGroup` 是对象容器，**没有** `get_vertices()` 方法
-   - 只有 `Polygon`、`Line` 等几何对象才有 `get_vertices()`、`get_start()`、`get_end()` 等方法
-   - 从 `VGroup` 中提取几何对象：`polygon = vgroup[0]` 或 `polygon = vgroup.submobjects[0]`
-   - 检查类型后再调用方法：`if isinstance(obj, Polygon): vertices = obj.get_vertices()`
+核心规则（必须严格遵守）：
+- 严格使用 Manim Community Edition v0.19.1 的 API。绝不使用旧版本（v0.18及以下）、3B1B 原版 manimgl/manimlib 的 API，或任何未发布特性。
+- 输出必须是完整、可独立运行的 Python 代码：保留 from manim import *，完整类定义（单个 Scene，construct() 方法），所有变量正确定义。
+- 整个视频只有一个 Scene 类。绝不添加多个 Scene 或 self.add_sound()（音频后期合成）。
+- 动画时长必须精确匹配原剧本提供的每个段落音频时长（run_time 误差不超过 0.2 秒），使用 self.wait() 调整静态部分。
+- 优先使用现代 API：MathTex()（公式优先）、Tex()、Create()、Write()、FadeIn()、FadeOut()、Transform()、ReplacementTransform() 等。
+- 颜色使用 BLUE, RED, GREEN 等常量或 HEX 字符串。
+- 对象组织使用 VGroup、HGroup 或 Group。
+- 修复常见错误：替换 TexMobject → MathTex，ShowCreation → Create，变量未定义 → 先创建 mobject 等。
 
-2. **对象访问**：
-   - 使用索引访问：`obj = vgroup[0]`
-   - 使用 `submobjects` 属性：`obj = vgroup.submobjects[0]`
-   - 检查长度：`if len(vgroup) > 0:` 再访问
+禁止使用已废弃/旧 API：
+- TexMobject, TextMobject
+- ShowCreation, Uncreate, ShowIncreasingSubsets
+- AddTextLetterByLetter, ApplyMethod
+- add_sound 等
 
-3. **坐标运算**：
-   - 必须使用 numpy 数组：`np.array([x, y, z]) + np.array([dx, dy, dz])`
-   - 不要直接对 Python 列表进行加法运算
+修复步骤（必须在脑中严格执行）：
+1. 仔细阅读错误信息，识别具体问题（导入缺失、方法不存在、变量未定义、时长不匹配、语法错误等）。
+2. 分析原代码，定位出错行或逻辑。
+3. 修正所有问题，确保动画逻辑、布局、流畅度与原剧本一致（渐进揭示、强调关键部分）。
+4. 自检：模拟执行代码，确认无新错误、时长总和匹配、无未导入类。
+5. 如果错误是版本不兼容，直接替换为 v0.19.1 正确 API。
 
-## 当前错误信息
+输出格式：
+只输出纯 Python 代码，用 ```python 包裹。代码必须完整，从 from manim import * 开始。不要添加任何解释、注释、额外文本、Markdown 或“修复说明”。
 
+原剧本和时长信息（供参考，确保逻辑一致）：
+{script_json}
+{audio_durations}
+
+原代码：
+{original_code}
+
+错误信息：
 {error_message}
 
-## 原始代码
-
-```python
-{original_code}
-```
-
-## 修复要求
-
-1. **保持代码结构不变**：不要改变代码的整体架构、方法名称、参数等
-2. **只修复错误**：针对错误信息中的具体问题，进行最小化修复
-3. **保持功能完整**：确保修复后的代码能够实现原有的动画效果
-4. **遵循 Manim 最佳实践**：使用正确的 Manim API 和模式
-
-## 常见错误修复指南
-
-### 1. IndexError: list index out of range
-- **原因**：访问列表/数组时索引超出范围
-- **修复方法**：
-  - 检查数组长度：`len(array) > index` 再访问
-  - 使用安全的访问方式：`array[index] if index < len(array) else default_value`
-  - 检查 `previous_objects` 是否为空：`if len(previous_objects) > 0:`
-  - 对于 VGroup，使用 `split()` 或检查子对象数量
-
-### 2. AttributeError: VGroup object has no attribute 'vertices'
-- **原因**：VGroup 是对象容器，不是几何对象，没有 `vertices` 属性
-- **修复方法**：
-  - 如果要从 VGroup 中获取 Polygon，先提取：`polygon = vgroup[0]` 或 `polygon = vgroup.submobjects[0]`
-  - 检查对象类型：`if isinstance(obj, Polygon): vertices = obj.get_vertices()`
-  - 如果 VGroup 包含多个对象，遍历查找 Polygon：`for obj in vgroup: if isinstance(obj, Polygon): ...`
-
-### 3. AttributeError: 'X' object has no attribute 'get_vertices'
-- **原因**：调用了不存在的方法或属性
-- **修复方法**：
-  - 对于 Polygon：使用 `get_vertices()` 或 `get_vertices()` 方法
-  - 对于 Line：使用 `get_start()` 和 `get_end()` 获取端点
-  - 对于 VGroup：先提取子对象再调用方法
-  - 检查对象类型并使用正确的方法
-
-### 4. SyntaxWarning: invalid escape sequence
-- **原因**：字符串中包含未转义的反斜杠
-- **修复方法**：
-  - 使用原始字符串：`r"4 \cdot \frac{{1}}{{2}}ab = 2ab"`
-  - 或转义反斜杠：`"4 \\cdot \\frac{{1}}{{2}}ab = 2ab"`
-  - 在 MathTex 中，LaTeX 公式通常使用原始字符串
-
-### 5. TypeError: 类型错误
-- **原因**：类型不匹配或操作不支持
-- **修复方法**：
-  - 坐标运算必须使用 numpy 数组：`np.array([x, y, z]) + np.array([dx, dy, dz])`
-  - 不要直接对 Python 列表进行加法运算（会连接列表）
-  - 确保所有坐标是长度为 3 的数组或列表
-
-### 6. 坐标运算错误
-- **原因**：直接对 Python 列表进行加法运算
-- **修复方法**：
-  ```python
-  # 错误：pos = [2, 0.5, 0] + [1.5, 0, 0]  # 会连接列表
-  # 正确：
-  import numpy as np
-  pos = np.array([2, 0.5, 0])
-  new_pos = pos + np.array([1.5, 0, 0])  # 数值相加
-  ```
-
-### 7. 对象访问错误
-- **原因**：从 VGroup 中访问对象的方式不正确
-- **修复方法**：
-  - 使用索引：`obj = vgroup[0]`
-  - 使用 `submobjects`：`obj = vgroup.submobjects[0]`
-  - 使用 `split()`：`objects = vgroup.split()`
-  - 检查对象是否存在：`if len(vgroup) > 0:`
-
-## 修复步骤
-
-1. **分析错误**：仔细阅读错误信息，确定错误类型和位置
-2. **定位问题**：在代码中找到出错的行和上下文
-3. **理解原因**：理解为什么会出现这个错误
-4. **应用修复**：根据上述指南应用最小化修复
-5. **验证修复**：确保修复后的代码语法正确，逻辑合理
-
-## 输出要求
-
-请直接输出修复后的完整 Python 代码，使用 ```python 代码块包裹。不要添加额外的解释文字，只输出代码。
-
-## 当前修复尝试
-
-这是第 {attempt_number} 次修复尝试。如果这是多次尝试，请考虑更激进的修复策略，但始终要保持代码的核心功能和结构。
+现在，输出修复后的完整 Manim 代码。

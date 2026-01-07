@@ -11,4 +11,7 @@ dependencies = [
     "openai>=1.0.0",
     "pyyaml>=6.0.0",
     "mutagen>=1.47.0",
+    "langchain>=1.2.1",
+    "langchain-openai>=1.1.6",
+    "moviepy>=1.0.3",
 ]

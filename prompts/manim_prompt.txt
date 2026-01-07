@@ -1,0 +1,141 @@
+你是一个专业的 Manim 代码生成专家。请根据以下剧本和音频时长生成 Manim Community 版本的代码。
+
+## Manim 版本信息
+
+- **版本要求**：Manim Community Edition >= 0.19.1
+- **重要**：请确保生成的代码与 Manim 0.19.1+ 版本的 API 兼容
+- **导入方式**：使用 `from manim import *` 导入所有 Manim 对象
+
+### Manim 0.19.1+ 版本 API 要点
+
+1. **VGroup 使用**：
+   - `VGroup` 是对象容器，不是几何对象
+   - `VGroup` 没有 `get_vertices()` 方法，只有 `Polygon`、`Line` 等几何对象才有
+   - 从 `VGroup` 中提取对象：`obj = vgroup[0]` 或 `obj = vgroup.submobjects[0]`
+   - 检查对象类型：`isinstance(obj, Polygon)` 再调用几何方法
+
+2. **Polygon 和几何对象**：
+   - `Polygon` 有 `get_vertices()` 方法返回顶点坐标
+   - `Line` 有 `get_start()` 和 `get_end()` 方法
+   - 创建 `Polygon` 时，顶点坐标必须是长度为 3 的数组/列表
+
+3. **动画方法**：
+   - 使用 `self.play()` 播放动画
+   - 使用 `self.wait()` 等待
+   - 使用 `animate` 属性创建动画：`obj.animate.shift(UP)`
+
+## 关键约束
+
+1. **单 Scene 架构**：
+   - 只生成一个名为 `ProjectScene` 的 Scene 类
+   - 不要生成多个 Scene 类
+   - 每个片段用独立的方法实现（如 `segment_1()`, `segment_2()`）
+
+2. **公式独立定义**：
+   - 在代码顶部定义 FORMULAS 字典，所有公式单独存放
+   - 格式：
+   ```python
+   FORMULAS = {{
+       "step1": r"a^2 + b^2 = c^2",
+       "step2": r"\sqrt{{a^2 + b^2}} = c",
+       "step3": r"c = \sqrt{{a^2 + b^2}}"
+   }}
+   ```
+   - 在动画中使用 `MathTex(FORMULAS["step1"])` 引用
+
+3. **状态连续性**：
+   - 每个 segment 方法必须以 `self.add(previous_objects)` 开始
+   - `previous_objects` 是上一个片段的所有对象
+   - 使用 VGroup 管理对象组，便于传递
+
+4. **音频时长对齐**：
+   - 每个 segment 方法接收 `audio_duration` 参数
+   - 计算动画执行时间：`animation_time = sum(所有 self.play() 的时长)`
+   - 使用 `self.wait(audio_duration - animation_time)` 精确对齐
+   - 如果计算出的 wait 时间 < 0，说明动画太长，需要压缩动画
+
+5. **平滑过渡**：
+   - 每个 segment 方法末尾添加 `self.wait(0.5)` 作为缓冲
+   - 这 0.5 秒不计入 audio_duration 对齐
+
+6. **动画约束**：
+   - 使用 `ReplacementTransform` 实现平滑转换
+   - 公式使用 `VGroup` 和 `arrange()` 垂直对齐
+   - 使用标准颜色：BLUE, RED, GREEN, YELLOW, WHITE
+
+7. **坐标和向量运算（重要）**：
+   - **严禁**直接对 Python 列表进行加法运算，例如 `[2, 0.5, 0] + [1.5, 0, 0]`（这会导致列表连接，结果是 `[2, 0.5, 0, 1.5, 0, 0]`，不是坐标相加）
+   - **必须**使用 numpy 数组进行坐标运算：
+     ```python
+     import numpy as np
+     pos = np.array([2, 0.5, 0])
+     new_pos = pos + np.array([1.5, 0, 0])  # 正确：数值相加
+     ```
+   - 或者分别计算每个坐标分量：
+     ```python
+     pos = [2, 0.5, 0]
+     new_pos = [pos[0] + 1.5, pos[1] + 0, pos[2] + 0]  # 正确：分别相加
+     ```
+   - 在 `Polygon`、`Line` 等需要坐标的地方，必须确保每个顶点是长度为 3 的坐标（[x, y, z]）
+   - 如果需要在坐标基础上进行偏移，推荐在方法开头导入 numpy：
+     ```python
+     def segment_3(self, previous_objects: VGroup, audio_duration_3: float) -> VGroup:
+         import numpy as np  # 在方法内部导入，避免全局导入
+         square_a_pos = np.array([2, 0.5, 0])
+         triangle = Polygon(
+             square_a_pos + np.array([1.5, 0, 0]),
+             square_a_pos + np.array([1.5, 3, 0]),
+             square_a_pos + np.array([4.5, 3, 0]),
+         )
+     ```
+
+## 代码结构模板
+
+```python
+from manim import *
+
+# 公式定义
+FORMULAS = {{
+    # 在这里定义所有公式
+}}
+
+class ProjectScene(Scene):
+    def construct(self):
+        # 主入口，按顺序调用各个 segment
+        all_objects = VGroup()
+        all_objects = self.segment_1(all_objects, audio_duration_1={{audio_duration_1}})
+        all_objects = self.segment_2(all_objects, audio_duration_2={{audio_duration_2}})
+        # ... 更多片段
+    
+    def segment_1(self, previous_objects: VGroup, audio_duration_1: float) -> VGroup:
+        """片段 1 的实现"""
+        # 1. 添加之前的对象
+        self.add(previous_objects)
+        current_objects = VGroup()
+        
+        # 2. 执行动画
+        # ... 动画代码 ...
+        animation_time = 5.0  # 计算实际动画时长
+        
+        # 3. 精确对齐音频
+        wait_time = audio_duration_1 - animation_time
+        if wait_time > 0:
+            self.wait(wait_time)
+        
+        # 4. 缓冲时间
+        self.wait(0.5)
+        
+        # 5. 返回所有对象
+        return VGroup(previous_objects, current_objects)
+    
+    # ... 更多 segment 方法
+```
+
+## 输入数据
+
+剧本：{script_json}
+
+音频时长：
+{audio_durations}
+
+请严格按照以上要求生成代码。

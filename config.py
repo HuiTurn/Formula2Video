@@ -24,3 +24,6 @@ OUTPUT_MANIM_CODE_DIR = "./output/manim_code"
 OUTPUT_VIDEOS_DIR = "./output/videos"
 OUTPUT_VIDEO_SEGMENTS_DIR = "./output/video_segments"
 OUTPUT_AUDIO_SEGMENTS_DIR = "./output/audio_segments"
+
+# 任务临时目录配置（用于多线程隔离）
+TEMP_BASE_DIR = os.getenv("TEMP_BASE_DIR", "./temp")

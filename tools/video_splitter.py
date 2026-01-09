@@ -37,7 +37,11 @@ class VideoSplitter:
         script: Script
     ) -> list[tuple[int, str, float]]:
         """
-        根据 script 中的时间信息切割视频
+        根据 script 中的音频时长信息精确切割视频
+        
+        严格按照每个片段的 audio_duration 进行切割，确保音画同步。
+        如果视频片段时长不足，会在合并时用冻结帧填充（由 video_merger 处理）。
+        
         返回 [(segment_id, video_path, duration), ...]
         """
         # 清理旧的视频片段文件，防止复用旧文件（仅在任务专属目录中清理）
@@ -72,8 +76,8 @@ class VideoSplitter:
         
         for segment in script.segments:
             if segment.audio_duration:
-                # 计算结束时间（包含 0.5 秒缓冲）
-                end_time = current_time + segment.audio_duration + 0.5
+                # 严格按照音频时长切割视频，确保音画同步
+                end_time = current_time + segment.audio_duration
                 
                 # 如果当前片段已经超出视频时长，需要生成冻结帧
                 if current_time >= video.duration:
@@ -85,14 +89,14 @@ class VideoSplitter:
                 if end_time > video.duration:
                     end_time = video.duration
                 
-                # 切割视频片段
+                # 切割视频片段（严格按照音频时长，如果视频不够长会在合并时用冻结帧填充）
                 clip = video.subclipped(current_time, end_time)
                 output_path = os.path.join(
                     self.output_dir, 
                     f"segment_{segment.segment_id}.mp4"
                 )
                 
-                logger.info(f"切割片段 {segment.segment_id}: {current_time:.2f}s - {end_time:.2f}s")
+                logger.info(f"切割片段 {segment.segment_id}: {current_time:.2f}s - {end_time:.2f}s (音频时长: {segment.audio_duration:.2f}s)")
                 # 在关闭前保存 duration
                 clip_duration = clip.duration
                 clip.write_videofile(

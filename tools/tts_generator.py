@@ -2,19 +2,30 @@
 import edge_tts
 import asyncio
 import os
+from typing import Optional
 from mutagen.mp3 import MP3
 from models.script_model import Script, Segment
-from config import TTS_OUTPUT_DIR, TTS_VOICE
-from utils.file_utils import ensure_dir
+from config import TTS_OUTPUT_DIR, TTS_VOICE, TEMP_BASE_DIR
+from utils.file_utils import ensure_dir, cleanup_segment_files, get_task_subdir
 
 
 class TTSGenerator:
     """TTS 生成器"""
     
-    def __init__(self, voice: str = TTS_VOICE, output_dir: str = TTS_OUTPUT_DIR):
+    def __init__(
+        self, 
+        voice: str = TTS_VOICE, 
+        output_dir: str = TTS_OUTPUT_DIR,
+        task_id: Optional[str] = None
+    ):
         self.voice = voice
-        self.output_dir = output_dir
-        ensure_dir(output_dir)
+        self.task_id = task_id
+        # 如果有 task_id，使用任务专属目录；否则使用默认目录（向后兼容）
+        if task_id:
+            self.output_dir = get_task_subdir(task_id, "audio_segments", TEMP_BASE_DIR)
+        else:
+            self.output_dir = output_dir
+            ensure_dir(output_dir)
     
     async def generate_segment_audio(
         self, 
@@ -45,6 +56,14 @@ class TTSGenerator:
         script: Script
     ) -> Script:
         """为所有片段生成音频，更新 script 中的音频时长"""
+        # 清理旧的音频片段文件，防止复用旧文件（仅在任务专属目录中清理）
+        if self.task_id:
+            # 任务专属目录，清理该任务的文件
+            cleanup_segment_files(self.output_dir, "segment_*.mp3")
+        else:
+            # 向后兼容：清理全局目录的文件
+            cleanup_segment_files(self.output_dir, "segment_*.mp3")
+        
         tasks = [
             self.generate_segment_audio(seg) 
             for seg in script.segments

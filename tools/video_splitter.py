@@ -1,10 +1,16 @@
 """视频切割工具（根据时间标记）"""
 import os
+import warnings
 import numpy as np
+from typing import Optional
 from moviepy import VideoFileClip, ImageClip
 from models.script_model import Script
-from utils.file_utils import ensure_dir
+from config import TEMP_BASE_DIR
+from utils.file_utils import ensure_dir, cleanup_segment_files, get_task_subdir
 from utils.logger import get_logger
+
+# 抑制 moviepy 的 "Proc not detected" 警告
+warnings.filterwarnings('ignore', message='.*Proc not detected.*', category=UserWarning)
 
 logger = get_logger(__name__)
 
@@ -12,9 +18,18 @@ logger = get_logger(__name__)
 class VideoSplitter:
     """视频切割器"""
     
-    def __init__(self, output_dir: str = "./output/video_segments"):
-        self.output_dir = output_dir
-        ensure_dir(output_dir)
+    def __init__(
+        self, 
+        output_dir: str = "./output/video_segments",
+        task_id: Optional[str] = None
+    ):
+        self.task_id = task_id
+        # 如果有 task_id，使用任务专属目录；否则使用默认目录（向后兼容）
+        if task_id:
+            self.output_dir = get_task_subdir(task_id, "video_segments", TEMP_BASE_DIR)
+        else:
+            self.output_dir = output_dir
+            ensure_dir(output_dir)
     
     def split_by_segments(
         self, 
@@ -25,6 +40,14 @@ class VideoSplitter:
         根据 script 中的时间信息切割视频
         返回 [(segment_id, video_path, duration), ...]
         """
+        # 清理旧的视频片段文件，防止复用旧文件（仅在任务专属目录中清理）
+        if self.task_id:
+            # 任务专属目录，清理该任务的文件
+            cleanup_segment_files(self.output_dir, "segment_*.mp4")
+        else:
+            # 向后兼容：清理全局目录的文件
+            cleanup_segment_files(self.output_dir, "segment_*.mp4")
+        
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"视频文件不存在: {video_path}")
         

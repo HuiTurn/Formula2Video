@@ -1,9 +1,14 @@
 """视频音频合并工具（冻结帧、平滑过渡）"""
 import os
+import warnings
+from typing import Optional
 from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips, ImageClip
 from models.script_model import Script
 from utils.file_utils import ensure_dir
 from utils.logger import get_logger
+
+# 抑制 moviepy 的 "Proc not detected" 警告
+warnings.filterwarnings('ignore', message='.*Proc not detected.*', category=UserWarning)
 
 logger = get_logger(__name__)
 
@@ -11,7 +16,13 @@ logger = get_logger(__name__)
 class VideoMerger:
     """视频合并器"""
     
-    def __init__(self, output_dir: str = "./output/videos"):
+    def __init__(
+        self, 
+        output_dir: str = "./output/videos",
+        task_id: Optional[str] = None
+    ):
+        self.task_id = task_id
+        # 最终输出始终保存到 output/videos 目录（不变）
         self.output_dir = output_dir
         ensure_dir(output_dir)
     

@@ -1,9 +1,10 @@
 """Manim 代码执行工具（单 Scene 支持）"""
 import subprocess
 import os
+from typing import Optional
 from utils.validation import LaTeXValidator
-from config import MANIM_OUTPUT_DIR, MANIM_QUALITY
-from utils.file_utils import ensure_dir
+from config import MANIM_OUTPUT_DIR, MANIM_QUALITY, TEMP_BASE_DIR
+from utils.file_utils import ensure_dir, get_task_subdir
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -12,9 +13,15 @@ logger = get_logger(__name__)
 class ManimExecutor:
     """Manim 执行器"""
     
-    def __init__(self, output_dir: str = MANIM_OUTPUT_DIR, quality: str = MANIM_QUALITY):
+    def __init__(
+        self, 
+        output_dir: str = MANIM_OUTPUT_DIR, 
+        quality: str = MANIM_QUALITY,
+        task_id: Optional[str] = None
+    ):
         self.output_dir = output_dir
         self.quality = quality
+        self.task_id = task_id
         ensure_dir(output_dir)
     
     def validate_code(self, code: str) -> tuple[bool, list[str]]:
@@ -102,8 +109,14 @@ class ManimExecutor:
             raise ValueError(f"代码验证失败: {errors}")
         
         # 2. 保存代码到临时文件
-        temp_file = os.path.join("./output/manim_code", f"{scene_name.lower()}_temp.py")
-        ensure_dir(os.path.dirname(temp_file))
+        # 如果有 task_id，使用任务专属目录；否则使用默认目录（向后兼容）
+        if self.task_id:
+            manim_code_dir = get_task_subdir(self.task_id, "manim_code", TEMP_BASE_DIR)
+            temp_file = os.path.join(manim_code_dir, f"{scene_name.lower()}_temp.py")
+        else:
+            temp_file = os.path.join("./output/manim_code", f"{scene_name.lower()}_temp.py")
+            ensure_dir(os.path.dirname(temp_file))
+        
         with open(temp_file, 'w', encoding='utf-8') as f:
             f.write(code)
         
@@ -153,6 +166,15 @@ class ManimExecutor:
         
         # 构建可能的路径列表（优先级从高到低）
         possible_dirs = []
+        
+        # 如果有 task_id，优先在任务专属目录中查找
+        if self.task_id:
+            task_manim_output_dir = get_task_subdir(self.task_id, "manim_output", TEMP_BASE_DIR)
+            for q_dir in quality_dirs:
+                possible_dirs.append(os.path.join(task_manim_output_dir, temp_basename, q_dir))
+                possible_dirs.append(os.path.join(task_manim_output_dir, temp_dirname, q_dir))
+            possible_dirs.append(os.path.join(task_manim_output_dir, temp_basename))
+            possible_dirs.append(os.path.join(task_manim_output_dir, temp_dirname))
         
         # 1. 基于临时文件名的路径（最高优先级）
         for q_dir in quality_dirs:

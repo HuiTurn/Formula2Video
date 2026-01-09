@@ -1,6 +1,7 @@
 """文件操作工具"""
 import json
 import os
+import re
 import hashlib
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -9,6 +10,19 @@ from typing import Any, Dict, Optional
 def ensure_dir(dir_path: str) -> None:
     """确保目录存在"""
     Path(dir_path).mkdir(parents=True, exist_ok=True)
+
+
+def sanitize_filename(filename: str) -> str:
+    """清理文件名，移除或替换所有 Windows 不允许的字符"""
+    # Windows 不允许的字符：< > : " / \ | ? *
+    invalid_chars = r'[<>:"/\\|?*]'
+    # 替换所有非法字符为下划线
+    sanitized = re.sub(invalid_chars, '_', filename)
+    # 移除首尾空格和下划线
+    sanitized = sanitized.strip(' _')
+    # 处理连续的下划线，替换为单个下划线
+    sanitized = re.sub(r'_+', '_', sanitized)
+    return sanitized
 
 
 def save_json(data: Dict[str, Any], file_path: str) -> None:

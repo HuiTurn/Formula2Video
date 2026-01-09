@@ -1,4 +1,6 @@
 """主编排器（音频先行流程）"""
+import os
+from typing import Optional
 from agents.script_agent import ScriptAgent
 from agents.tts_agent import TTSAgent
 from agents.manim_agent import ManimAgent
@@ -9,8 +11,8 @@ from tools.video_splitter import VideoSplitter
 from tools.video_merger import VideoMerger
 from models.script_model import Script
 from utils.logger import get_logger
-from utils.file_utils import save_json
-from config import OUTPUT_SCRIPTS_DIR, OUTPUT_MANIM_CODE_DIR
+from utils.file_utils import save_json, cleanup_segment_files, cleanup_directory
+from config import OUTPUT_SCRIPTS_DIR, OUTPUT_MANIM_CODE_DIR, TTS_OUTPUT_DIR, OUTPUT_VIDEO_SEGMENTS_DIR
 
 logger = get_logger(__name__)
 
@@ -18,23 +20,51 @@ logger = get_logger(__name__)
 class VideoOrchestrator:
     """主编排器，实现音频先行策略"""
     
-    def __init__(self):
+    def __init__(self, task_id: Optional[str] = None):
+        self.task_id = task_id
         self.script_agent = ScriptAgent()
         self.tts_agent = TTSAgent()
         self.manim_agent = ManimAgent()
-        self.tts_generator = TTSGenerator()
-        self.manim_executor = ManimExecutor()
-        self.video_splitter = VideoSplitter()
-        self.video_merger = VideoMerger()
+        # 如果有 task_id，传递给工具类；否则使用默认行为（向后兼容）
+        self.tts_generator = TTSGenerator(task_id=task_id)
+        self.manim_executor = ManimExecutor(task_id=task_id)
+        self.video_splitter = VideoSplitter(task_id=task_id)
+        self.video_merger = VideoMerger(task_id=task_id)
     
     async def generate_video(
         self,
         formula: str,
         duration: int = 60,
-        style: str = "3Blue1Brown"
+        style: str = "3Blue1Brown",
+        task_id: Optional[str] = None
     ) -> dict:
         """生成视频的主流程"""
         logger.info(f"开始生成视频: {formula}")
+        
+        # 如果提供了 task_id，使用它；否则使用实例的 task_id
+        current_task_id = task_id if task_id is not None else self.task_id
+        
+        # 如果 task_id 与实例的不同，重新创建工具类实例
+        if current_task_id != self.task_id:
+            logger.info(f"任务ID变化 ({self.task_id} -> {current_task_id})，重新创建工具类实例")
+            self.tts_generator = TTSGenerator(task_id=current_task_id)
+            self.manim_executor = ManimExecutor(task_id=current_task_id)
+            self.video_splitter = VideoSplitter(task_id=current_task_id)
+            self.video_merger = VideoMerger(task_id=current_task_id)
+            self.task_id = current_task_id
+        
+        # 清理旧的中间文件，防止复用旧文件导致视频拼接错误和语音不同步
+        # 如果有 task_id，只清理任务专属目录；否则清理全局目录（向后兼容）
+        if current_task_id:
+            logger.info(f"使用任务ID: {current_task_id}，清理任务专属临时文件...")
+            # 任务专属目录的清理由各个工具类负责，这里不需要全局清理
+        else:
+            logger.info("清理旧的中间文件（全局目录）...")
+            cleanup_segment_files(TTS_OUTPUT_DIR, "segment_*.mp3")
+            cleanup_segment_files(OUTPUT_VIDEO_SEGMENTS_DIR, "segment_*.mp4")
+            # 清理 Manim 临时输出目录（projectscene_temp）
+            manim_temp_dir = os.path.join("media", "videos", "projectscene_temp")
+            cleanup_directory(manim_temp_dir, force=True)
         
         try:
             # 1. 生成剧本
@@ -107,7 +137,18 @@ class VideoOrchestrator:
                         attempt=fix_attempt
                     )
                     
-                    # 更新保存的代码
+                    # 更新保存的代码（如果有 task_id，保存到任务专属目录）
+                    if current_task_id:
+                        # 任务专属目录的代码路径
+                        from utils.file_utils import get_task_subdir
+                        from config import TEMP_BASE_DIR
+                        task_code_dir = get_task_subdir(current_task_id, "manim_code", TEMP_BASE_DIR)
+                        task_code_path = os.path.join(task_code_dir, f"{script.title.replace(' ', '_')}.py")
+                        with open(task_code_path, 'w', encoding='utf-8') as f:
+                            f.write(manim_code)
+                        logger.info(f"修复后的代码已保存: {task_code_path}")
+                    
+                    # 同时保存到全局目录（便于查看）
                     with open(code_path, 'w', encoding='utf-8') as f:
                         f.write(manim_code)
                     logger.info(f"修复后的代码已保存: {code_path}")

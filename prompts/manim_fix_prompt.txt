@@ -14,6 +14,13 @@
 - 对象组织使用 VGroup、HGroup 或 Group。
 - 修复常见错误：替换 TexMobject → MathTex，ShowCreation → Create，变量未定义 → 先创建 mobject 等。
 
+**Manim v0.19.1 常见 API 正确用法（重要）：**
+- **Sector 类**：使用 `radius` 参数，不是 `outer_radius`。正确用法：`Sector(radius=3, angle=PI/6, start_angle=0, color=ORANGE, fill_opacity=0.5)`
+- **AnnularSector 类**：使用 `inner_radius` 和 `outer_radius` 参数。正确用法：`AnnularSector(inner_radius=1, outer_radius=3, angle=PI/6, start_angle=0)`
+- **MathTex 类**：仅用于纯数学公式，不支持中文。包含中文的文本必须使用 `Text()` 类。
+- **Text 类**：用于所有包含中文的文本。正确用法：`Text("面积 = 高 × 宽", font_size=24)` 或 `Text("勾股定理", font_size=36)`
+- **混合内容**：如果公式中既有中文又有数学符号，可以将中文部分用 Text() 创建，数学部分用 MathTex() 创建，然后用 VGroup 组合，或者全部使用 Text() 类。
+
 禁止使用已废弃/旧 API：
 - TexMobject, TextMobject
 - ShowCreation, Uncreate, ShowIncreasingSubsets
@@ -22,17 +29,20 @@
 
 修复步骤（必须在脑中严格执行）：
 1. 仔细阅读错误信息，识别具体问题（导入缺失、方法不存在、变量未定义、时长不匹配、语法错误等）。
-2. 分析原代码，定位出错行或逻辑。
-3. 修正所有问题，确保动画逻辑、布局、流畅度与原剧本一致（渐进揭示、强调关键部分）。
-4. 自检：模拟执行代码，确认无新错误、时长总和匹配、无未导入类。
-5. 如果错误是版本不兼容，直接替换为 v0.19.1 正确 API。
+2. 查看下面的 API 信息，确认正确的 API 用法。
+3. 分析原代码，定位出错行或逻辑。
+4. 根据 API 信息修正所有问题，确保动画逻辑、布局、流畅度与原剧本一致（渐进揭示、强调关键部分）。
+5. 自检：模拟执行代码，确认无新错误、时长总和匹配、无未导入类。
+6. 如果错误是版本不兼容，直接替换为 v0.19.1 正确 API。
 
 输出格式：
-只输出纯 Python 代码，用 ```python 包裹。代码必须完整，从 from manim import * 开始。不要添加任何解释、注释、额外文本、Markdown 或“修复说明”。
+只输出纯 Python 代码，用 ```python 包裹。代码必须完整，从 from manim import * 开始。不要添加任何解释、注释、额外文本、Markdown 或"修复说明"。
 
 原剧本和时长信息（供参考，确保逻辑一致）：
 {script_json}
 {audio_durations}
+
+{api_info}
 
 原代码：
 {original_code}

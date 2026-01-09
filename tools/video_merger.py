@@ -4,7 +4,7 @@ import warnings
 from typing import Optional
 from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips, ImageClip
 from models.script_model import Script
-from utils.file_utils import ensure_dir
+from utils.file_utils import ensure_dir, sanitize_filename
 from utils.logger import get_logger
 
 # 抑制 moviepy 的 "Proc not detected" 警告
@@ -35,7 +35,7 @@ class VideoMerger:
     ) -> str:
         """合并视频和音频，使用冻结帧填充"""
         if output_filename is None:
-            output_filename = script.title.replace(" ", "_") + ".mp4"
+            output_filename = sanitize_filename(script.title) + ".mp4"
         
         output_path = os.path.join(self.output_dir, output_filename)
         

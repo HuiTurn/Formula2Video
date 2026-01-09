@@ -11,7 +11,7 @@ from tools.video_splitter import VideoSplitter
 from tools.video_merger import VideoMerger
 from models.script_model import Script
 from utils.logger import get_logger
-from utils.file_utils import save_json, cleanup_segment_files, cleanup_directory
+from utils.file_utils import save_json, cleanup_segment_files, cleanup_directory, sanitize_filename
 from config import OUTPUT_SCRIPTS_DIR, OUTPUT_MANIM_CODE_DIR, TTS_OUTPUT_DIR, OUTPUT_VIDEO_SEGMENTS_DIR
 
 logger = get_logger(__name__)
@@ -72,7 +72,7 @@ class VideoOrchestrator:
             script = self.script_agent.generate(formula, duration, style)
             
             # 保存剧本
-            script_path = f"{OUTPUT_SCRIPTS_DIR}/{script.title.replace(' ', '_')}.json"
+            script_path = f"{OUTPUT_SCRIPTS_DIR}/{sanitize_filename(script.title)}.json"
             save_json(script.model_dump(), script_path)
             logger.info(f"剧本已保存: {script_path}")
             
@@ -95,7 +95,7 @@ class VideoOrchestrator:
             manim_code = self.manim_agent.generate(script, audio_durations)
             
             # 保存 Manim 代码
-            code_path = f"{OUTPUT_MANIM_CODE_DIR}/{script.title.replace(' ', '_')}.py"
+            code_path = f"{OUTPUT_MANIM_CODE_DIR}/{sanitize_filename(script.title)}.py"
             with open(code_path, 'w', encoding='utf-8') as f:
                 f.write(manim_code)
             logger.info(f"Manim 代码已保存: {code_path}")
@@ -112,7 +112,7 @@ class VideoOrchestrator:
                 video_path = self.manim_executor.execute_scene(
                     manim_code, 
                     scene_name="ProjectScene",
-                    output_filename=script.title.replace(" ", "_")
+                    output_filename=sanitize_filename(script.title)
                 )
                 logger.info(f"Manim 视频已生成: {video_path}")
             except (RuntimeError, ValueError) as e:
@@ -143,7 +143,7 @@ class VideoOrchestrator:
                         from utils.file_utils import get_task_subdir
                         from config import TEMP_BASE_DIR
                         task_code_dir = get_task_subdir(current_task_id, "manim_code", TEMP_BASE_DIR)
-                        task_code_path = os.path.join(task_code_dir, f"{script.title.replace(' ', '_')}.py")
+                        task_code_path = os.path.join(task_code_dir, f"{sanitize_filename(script.title)}.py")
                         with open(task_code_path, 'w', encoding='utf-8') as f:
                             f.write(manim_code)
                         logger.info(f"修复后的代码已保存: {task_code_path}")
@@ -158,7 +158,7 @@ class VideoOrchestrator:
                         video_path = self.manim_executor.execute_scene(
                             manim_code, 
                             scene_name="ProjectScene",
-                            output_filename=script.title.replace(" ", "_")
+                            output_filename=sanitize_filename(script.title)
                         )
                         logger.info(f"代码修复成功，Manim 视频已生成: {video_path}")
                         break
@@ -189,7 +189,7 @@ class VideoOrchestrator:
                 video_segments, 
                 audio_segments, 
                 script, 
-                output_filename=script.title.replace(" ", "_") + ".mp4"
+                output_filename=sanitize_filename(script.title) + ".mp4"
             )
             
             total_duration = script.get_total_duration()

@@ -15,6 +15,8 @@ audio/
 media/
 output/
 *.mp3
+*.mp4
+tasks.json
 
 .cursor/
 temp/

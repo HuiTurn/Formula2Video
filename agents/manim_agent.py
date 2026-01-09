@@ -19,7 +19,7 @@ class ManimAgent:
         }
         self.llm = ChatOpenAI(
             model=OPENAI_MODEL,
-            temperature=0.3,  # 较低温度，确保代码准确性
+            temperature=0.1,  # 极低温度，确保严格遵循剧本坐标，提高精确性
             api_key=OPENAI_API_KEY,
             base_url=OPENAI_API_BASE_URL,
             extra_body=extra_body

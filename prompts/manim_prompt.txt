@@ -11,7 +11,7 @@
   * 必须使用提供的 audio_durations 字典中的值
   * 在代码开头定义 AUDIO_DURATIONS 字典，使用传入的 audio_durations 值填充
   * 每个 segment 使用对应的 audio_duration_N 值（audio_duration_1, audio_duration_2, ...）
-  * 时间计算：wait_time = audio_duration - sum(该 segment 中所有动画的 run_time)
+  * 时间计算：wait_time = audio_duration - sum(该 segment 中所有动画的 run_time)，**所有动画包括 Create、Write、FadeIn、FadeOut、Transform 等，FadeOut 的 run_time 也必须计入**
   * 使用累计时间，不要使用固定时间点（如"0-10秒", "10-20秒"）。每个 segment 的开始时间是前一个 segment 的结束时间
 - 优先使用现代动画：Create()、Write()、FadeIn()、FadeOut()、Transform()、ReplacementTransform()、GrowFromCenter() 等。
 - 公式必须使用 MathTex()（优先）或 Tex()，绝不使用 TexMobject() 或 TextMobject()。
@@ -24,7 +24,13 @@
 - 颜色使用预定义常量（如 BLUE, RED, GREEN, YELLOW, PURPLE）或 HEX 字符串（如 "#58C4DD"）。
 - 对象组织优先使用 VGroup、HGroup 或 Group。
 - 布局合理：公式居中、动画流畅渐进、强调关键部分（使用围框、颜色变化、箭头等）。
-- 背景默认黑色（Manim 默认），分辨率 1920x1080，无需手动修改配置。
+- **背景设置（重要）**：必须在 construct() 方法开头添加网格背景，使用 NumberPlane 创建。网格背景应该：
+  * 使用 `NumberPlane(x_range=[-7, 7, 1], y_range=[-4, 4, 1], ...)` 创建
+  * 坐标轴颜色使用 `GRAY_C`，线宽 2，透明度设置为 0.4（比网格线稍明显但不过于突出）
+  * 网格线颜色使用 `GRAY_D`，网格线透明度设置为 0.3
+  * 使用 `self.add(grid)` 直接添加（不使用动画），确保背景在最底层
+  * 网格背景必须是最先添加的元素，不干扰前景内容
+  * 分辨率 1920x1080，无需手动修改配置
 - 避免任何可能导致运行时错误的写法：变量必须先定义、mobject 必须正确创建、无未导入的类或方法。
 
 - **几何逻辑理解要求（重要）**：
@@ -83,7 +89,38 @@
     - 然后确定使用顶点坐标还是中心坐标
     - 最后创建图形，确保坐标正确
 - **动态位置计算**：只有在剧本没有明确给出坐标时，才使用 Manim 的布局辅助函数（如 `arrange()`, `next_to()`, `align_to()`, `to_edge()`, `to_corner()`）或手动计算位置。如果剧本中有坐标，优先使用剧本坐标。
+- **元素生命周期管理要求（重要）**：
+  * **每个 segment 的元素跟踪**：必须跟踪每个 segment 中创建的所有元素，可以使用列表或 VGroup 管理，以便在需要时统一移除。
+  * **segment 结束时的元素移除**：每个 segment 结束时，如果元素不再需要（根据剧本描述或逻辑判断），必须明确使用 `FadeOut()` 移除。例如：
+    - 如果剧本明确说明元素会消失，代码中必须实现对应的移除动画
+    - 如果新 segment 会创建与旧元素重叠或冲突的新元素，必须先移除旧元素
+    - 如果元素只在特定 segment 中使用，该 segment 结束后必须移除
+  * **避免元素累积**：绝不允许元素在多个 segment 中累积而不移除。如果元素需要保留到后续 segment，必须明确说明；如果不需要，必须移除。
+  * **移除时机**：元素移除应该在 segment 结束前完成（在 `self.wait()` 之前），或者在新 segment 开始时立即移除旧元素。
+  * **移除方式**：优先使用 `FadeOut()` 实现平滑的移除动画，避免使用 `self.remove()` 直接删除（除非是背景元素等不需要动画的元素）。
+  * **重叠冲突处理**：在创建新元素之前，如果旧元素会与新元素重叠或冲突，必须先移除旧元素，然后再创建新元素。
+  * **FadeOut 时间计算（重要）**：FadeOut 的 `run_time` 必须计入 `animation_time`，以确保音画同步：
+    - 如果 FadeOut 在当前 segment 结束前执行（在 `self.wait()` 之前），必须计入当前 segment 的 `animation_time`
+    - 如果 FadeOut 在新 segment 开始时执行，必须计入新 segment 的 `animation_time`
+    - 示例：如果 segment 中有 `self.play(FadeOut(element), run_time=0.5)`，则 `animation_time` 必须包含这 0.5 秒
 - **安全边距**：所有元素应在画布边界留出安全边距（建议 x: [-6.5, 6.5], y: [-3.5, 3.5]）以确保元素完全在可视区域内，避免因字体渲染、描边等导致的轻微溢出。
+- **图形尺寸验证要求（重要）**：
+  * **优先级规则（必须严格遵守）**：
+    1. **优先使用剧本坐标**：如果剧本中明确提供了元素的坐标（中心坐标或顶点坐标），必须直接使用这些坐标，不要重新计算。剧本中的坐标已经考虑了尺寸和安全边距。
+    2. **验证边界**：使用剧本坐标创建元素后，必须验证元素边界（使用 `get_left()`, `get_right()`, `get_top()`, `get_bottom()`）是否在安全范围内（x: [-6.5, 6.5], y: [-3.5, 3.5]）。
+    3. **重叠检测**：如果使用剧本坐标后，元素（包括文字标签）与其他已存在的元素（包括文字标签）重叠，才需要基于尺寸调整位置或先移除旧元素。如果不会重叠，保持剧本坐标不变。**特别注意**：文字标签之间的重叠检测有特殊要求（见下面的"文字标签之间的重叠检测"部分）。
+    4. **剧本未提供坐标时**：如果剧本没有提供坐标，才需要基于尺寸计算位置（使用 `get_width()`, `get_height()` 等方法），确保元素之间有足够的间距（至少 0.3-0.5 单位）。
+  * **尺寸获取方法**：创建元素后，可以使用 `get_width()`, `get_height()`, `get_bounding_box()` 等方法获取实际尺寸，主要用于验证边界和检测重叠，而不是重新计算位置。
+  * **文本元素特殊处理**：文本元素的实际尺寸可能因字体、字号、内容长度而异，必须通过 `get_width()` 和 `get_height()` 获取实际尺寸，不能仅凭 `font_size` 估算。
+  * **文字标签之间的重叠检测（重要）**：
+    - 创建文字标签后，必须检查其边界是否与其他已存在的文字标签重叠
+    - 使用 `get_bounding_box()` 或 `get_left()`, `get_right()`, `get_top()`, `get_bottom()` 检查标签边界
+    - 计算标签之间的实际距离：`distance_x = abs(label1.get_center()[0] - label2.get_center()[0])`，`distance_y = abs(label1.get_center()[1] - label2.get_center()[1])`
+    - 检查标签边界是否重叠：`label1.get_right()[0] > label2.get_left()[0]` 且 `label1.get_left()[0] < label2.get_right()[0]`（水平重叠），或类似地检查垂直重叠
+    - 如果标签会与其他标签重叠，必须调整位置，确保它们之间有足够的间距：
+      - 水平排列：间距至少是较大标签宽度的 0.5 倍，或至少 0.5-0.8 单位
+      - 垂直排列：间距至少是较大标签高度的 0.5 倍，或至少 0.5-0.8 单位
+    - **即使剧本指定了坐标，如果标签重叠，也必须调整位置**，确保标签可读性
 - 关键揭示动画必须丝滑自然：优先使用 Transform、ReplacementTransform，结合 Indicate 或 SurroundingRectangle 强调。
 - 所有正方形、三角形、多边形必须完美贴合，无视觉空隙或重叠。
 - 坐标轴类动画必须使用 Axes、NumberPlane，并合理设置范围和刻度。
@@ -180,17 +217,44 @@
    - 如果使用剧本坐标后轻微溢出（<0.2单位），可以保持原坐标
    - 如果明显溢出（≥0.2单位），调整位置但保持相对布局关系，或在注释中说明调整原因
    - 调整后的坐标应该更新为新的值，而不是临时修改
+5.5. **图形尺寸验证检查（重要）**：
+   - 确认优先使用了剧本坐标（如果剧本提供了坐标）
+   - 确认使用剧本坐标后验证了元素边界是否在安全范围内（x: [-6.5, 6.5], y: [-3.5, 3.5]）
+   - 确认如果使用剧本坐标后元素重叠，已基于尺寸调整位置或先移除旧元素
+   - 确认如果剧本没有提供坐标，已基于尺寸计算位置，确保元素之间有足够的间距（至少 0.3-0.5 单位）
+   - 确认文本元素考虑了字体大小对实际尺寸的影响，通过 get_width() 和 get_height() 获取实际尺寸
+   - **确认文字标签之间没有重叠（重要）**：
+     - 确认创建每个文字标签后，都检查了其边界是否与其他已存在的文字标签重叠
+     - 确认如果标签重叠，已调整位置，确保它们之间有足够的间距（至少 0.5-0.8 单位，或较大标签宽度的 0.5 倍）
+     - 确认即使剧本指定了坐标，如果标签重叠，也已调整位置
 6. 布局验证：确保元素之间不重叠，间距合理。如果剧本中指定了位置，使用剧本位置；如果未指定，优先使用 arrange(), next_to() 等布局函数。
+6.5. **元素生命周期管理检查（重要）**：
+   - **跟踪每个 segment 的元素**：确认每个 segment 中创建的所有元素都被正确跟踪（可以使用列表或 VGroup 管理）
+   - **移除不再需要的元素**：确认每个 segment 结束时，如果元素不再需要（根据剧本描述或逻辑判断），必须使用 `FadeOut()` 移除。例如：
+     * 如果剧本明确说明元素会消失，代码中必须实现对应的移除动画
+     * 如果新 segment 会创建与旧元素重叠或冲突的新元素，必须先移除旧元素
+     * 如果元素只在特定 segment 中使用，该 segment 结束后必须移除
+   - **避免元素累积**：确认不会出现元素在多个 segment 中累积的情况。如果元素需要保留到后续 segment，必须明确说明；如果不需要，必须移除。
+   - **移除时机**：元素移除应该在 segment 结束前完成（在 `self.wait()` 之前），或者在新 segment 开始时立即移除旧元素。
+   - **移除方式**：优先使用 `FadeOut()` 实现平滑的移除动画，避免使用 `self.remove()` 直接删除（除非是背景元素等不需要动画的元素）。
 7. **音频时长检查（重要）**：
    - 确认代码开头定义了 AUDIO_DURATIONS 字典
    - 确认没有硬编码的音频时长数字（如 13.752, 13.44, 9.288 等）
    - 确认使用了 AUDIO_DURATIONS 字典获取音频时长值
    - 确认使用了累计时间计算，不是固定时间点（不使用"0-10秒"这样的固定时间段）
-   - 确认每个 segment 的 wait_time 计算正确：wait_time = audio_duration - sum(所有 run_time)
+   - 确认每个 segment 的 wait_time 计算正确：wait_time = audio_duration - sum(所有 run_time)，**必须包括所有动画的 run_time，包括 FadeOut 的 run_time**
+   - 确认 FadeOut 的时间已正确计入：如果 segment 中有 FadeOut 动画，其 run_time 必须计入该 segment 的 animation_time
    - **确认每个 segment（包括最后一个）都调用了 `self.wait(wait_time)`**：绝对不能省略最后一个 segment 的等待时间
    - 确认 wait_time >= 0（如果为负数，说明动画时长过长，必须减少动画的 run_time）
    - 确认 segment 注释中不使用固定时间点，而是说明是第几个 segment
-8. 如果不确定某个 API，优先选择最常见、最稳定的现代用法。
+8. **尺寸验证和元素生命周期综合检查**：
+   - 确认所有元素的尺寸都已验证，元素之间没有重叠
+   - **确认所有文字标签之间没有重叠，标签之间有足够的间距（至少 0.5-0.8 单位）**
+   - 确认每个 segment 结束时，不再需要的元素都已移除
+   - 确认不会出现元素在多个 segment 中累积的情况
+   - 确认元素移除时机正确（在 segment 结束前或新 segment 开始时）
+   - 确认元素移除方式正确（优先使用 FadeOut()）
+9. 如果不确定某个 API，优先选择最常见、最稳定的现代用法。
 
 剧本和时长信息：
 {script_json}
@@ -230,11 +294,13 @@
   
 - 每个 segment 对应一个 audio_duration_N，按顺序使用（segment 1 使用 audio_duration_1，segment 2 使用 audio_duration_2，依此类推）
 - 时间计算方式（每个 segment 都必须遵循，包括最后一个 segment）：
-  1. 获取该 segment 的音频时长：`audio_dur = AUDIO_DURATIONS['audio_duration_N']`
-  2. 累计该 segment 中所有动画的 run_time：`animation_time = sum(所有 run_time 值)`
-  3. 计算等待时间：`wait_time = audio_dur - animation_time`
-  4. **必须使用 `self.wait(wait_time)` 填充剩余时间**（即使 wait_time 很小，如 0.1 秒，也必须等待）
-  5. **最后一个 segment 也必须完整等待**：绝对不能省略最后一个 segment 的 `self.wait(wait_time)`，否则画面会在语音结束前就停止
+1. 获取该 segment 的音频时长：`audio_dur = AUDIO_DURATIONS['audio_duration_N']`
+2. 累计该 segment 中所有动画的 run_time：`animation_time = sum(所有 run_time 值)`，**必须包括所有动画类型**：
+   - Create、Write、FadeIn、FadeOut、Transform、ReplacementTransform 等的 run_time
+   - **特别注意**：FadeOut 的 run_time 也必须计入，如果 FadeOut 在当前 segment 结束前执行，计入当前 segment；如果在新 segment 开始时执行，计入新 segment
+3. 计算等待时间：`wait_time = audio_dur - animation_time`
+4. **必须使用 `self.wait(wait_time)` 填充剩余时间**（即使 wait_time 很小，如 0.1 秒，也必须等待）
+5. **最后一个 segment 也必须完整等待**：绝对不能省略最后一个 segment 的 `self.wait(wait_time)`，否则画面会在语音结束前就停止
 - **禁止在 segment 中使用硬编码的音频时长数字**：在 segment 的代码中（construct() 方法内），绝对不允许直接使用硬编码的数字（如 `self.wait(13.752 - 10)`）。必须通过 AUDIO_DURATIONS 字典获取（如 `audio_dur_1 = AUDIO_DURATIONS['audio_duration_1']`，然后使用 `self.wait(audio_dur_1 - 10)`）
 - **AUDIO_DURATIONS 字典的值必须来自提供的 audio_durations**：字典中的数值必须严格按照提供的 audio_durations 中的实际值填写，不能自己编造或猜测
 - **禁止使用固定时间点**：不要使用"0-10秒", "10-20秒"这样的固定时间点。必须使用累计时间，每个 segment 的开始时间是前一个 segment 的结束时间
@@ -242,22 +308,26 @@
   ```python
   # Segment 1
   audio_dur_1 = AUDIO_DURATIONS['audio_duration_1']  # 例如 13.752 秒
-  # ... 动画代码，假设总 run_time = 10 秒 ...
+  # ... 动画代码，假设总 run_time = 10 秒（包括所有 Create、Write、FadeIn 等）...
   self.wait(audio_dur_1 - 10)  # 等待 3.752 秒
   # Segment 1 实际结束时间：13.752 秒
   
   # Segment 2（从 13.752 秒开始，自动累计）
   audio_dur_2 = AUDIO_DURATIONS['audio_duration_2']  # 例如 13.44 秒
-  # ... 动画代码，假设总 run_time = 5 秒 ...
-  self.wait(audio_dur_2 - 5)  # 等待 8.44 秒
+  # 如果需要在 segment 2 开始时移除 segment 1 的元素
+  # self.play(FadeOut(element1), run_time=0.5)  # FadeOut 的 0.5 秒必须计入 segment 2 的 animation_time
+  # ... 其他动画代码，假设总 run_time = 4.5 秒（不包括 FadeOut）...
+  # animation_time_2 = 0.5 + 4.5 = 5.0 秒（包括 FadeOut 的 0.5 秒）
+  self.wait(audio_dur_2 - 5.0)  # 等待 8.44 秒
   # Segment 2 实际结束时间：13.752 + 13.44 = 27.192 秒
   
   # Segment 3（从 27.192 秒开始，自动累计）
   audio_dur_3 = AUDIO_DURATIONS['audio_duration_3']  # 例如 9.288 秒
-  # ... 动画代码，假设总 run_time = 7 秒 ...
+  # ... 动画代码，假设总 run_time = 7 秒（包括所有动画）...
   self.wait(audio_dur_3 - 7)  # 等待 2.288 秒
   # Segment 3 实际结束时间：27.192 + 9.288 = 36.48 秒
   # 注意：最后一个 segment 也必须完整等待，不能省略 self.wait()
+  # 注意：如果 segment 中有 FadeOut，其 run_time 必须计入 animation_time
   ```
 
 **重要提醒**：剧本中的视觉描述已经包含了精确的坐标和边界信息。生成代码时：
@@ -285,36 +355,81 @@ AUDIO_DURATIONS = {{
 
 class YourSceneName(Scene):
     def construct(self):
+        # 创建网格背景（必须在所有内容之前添加）
+        grid = NumberPlane(
+            x_range=[-7, 7, 1],
+            y_range=[-4, 4, 1],
+            axis_config={{"color": GRAY_C, "stroke_width": 2, "stroke_opacity": 0.4}},
+            background_line_style={{"stroke_color": GRAY_D, "stroke_width": 1, "stroke_opacity": 0.3}}
+        )
+        self.add(grid)  # 直接添加，不使用动画
+        
         # Segment 1
         audio_dur_1 = AUDIO_DURATIONS['audio_duration_1']
         # 创建 Segment 1 的所有 mobject
         element1 = Text("示例文本", font_size=24)
         element1.move_to([0, 0, 0])  # 使用剧本提供的坐标
+        # 验证元素边界（重要：创建后立即验证）
+        # 使用 get_left(), get_right(), get_top(), get_bottom() 验证边界是否在安全范围内
+        # 如果使用剧本坐标后元素重叠或超出安全范围，才需要调整位置
+        
+        # 创建文字标签示例（展示如何避免标签重叠）
+        label1 = Text("标签1", font_size=20)
+        label1.move_to([2, 0, 0])  # 使用剧本提供的坐标
+        # 验证标签边界，检查是否与其他标签重叠
+        label1_width = label1.get_width()
+        label1_left = label1.get_left()[0]
+        label1_right = label1.get_right()[0]
+        
+        label2 = Text("标签2", font_size=20)
+        label2.move_to([1.5, 0, 0])  # 如果剧本指定了这个坐标
+        # 检查 label2 是否与 label1 重叠
+        label2_width = label2.get_width()
+        label2_left = label2.get_left()[0]
+        label2_right = label2.get_right()[0]
+        # 如果重叠（label2_right > label1_left 且 label2_left < label1_right），需要调整位置
+        # 例如：调整 label2 的位置，确保间距至少是较大标签宽度的 0.5 倍
+        min_spacing = max(label1_width, label2_width) * 0.5
+        if label2_right > label1_left and label2_left < label1_right:
+            # 调整 label2 的位置，确保不重叠
+            label2.move_to([label1_left - min_spacing - label2_width/2, 0, 0])
+        
         # 执行 Segment 1 的动画
-        self.play(Create(element1), run_time=2.0)
-        animation_time_1 = 2.0  # Segment 1 中所有动画的总时长
+        self.play(Create(element1), FadeIn(label1), FadeIn(label2), run_time=2.0)
+        animation_time_1 = 2.0  # Segment 1 中所有动画的总时长（包括 Create、Write、FadeIn 等）
         self.wait(audio_dur_1 - animation_time_1)  # 填充剩余时间
         
         # Segment 2
         audio_dur_2 = AUDIO_DURATIONS['audio_duration_2']
+        # 如果 element1 不再需要，先移除它（避免重叠）
+        # 根据剧本描述判断：如果 element1 需要保留到后续 segment，则不移除；如果不需要，则必须移除
+        # 示例：移除 element1（如果不再需要）
+        self.play(FadeOut(element1), run_time=0.5)  # FadeOut 的 run_time 必须计入 segment 2 的 animation_time
         # 创建 Segment 2 的所有 mobject
         element2 = Text("另一个文本", font_size=24)
         element2.move_to([0, -1, 0])  # 使用剧本提供的坐标
+        # 验证元素边界（重要：创建后立即验证）
+        # 检查 element2 是否与其他元素重叠，如果重叠，需要调整位置或先移除旧元素
         # 执行 Segment 2 的动画
         self.play(FadeIn(element2), run_time=1.5)
-        animation_time_2 = 1.5  # Segment 2 中所有动画的总时长
+        animation_time_2 = 0.5 + 1.5  # Segment 2 中所有动画的总时长：FadeOut(0.5) + FadeIn(1.5) = 2.0 秒
         self.wait(audio_dur_2 - animation_time_2)  # 填充剩余时间
         
         # Segment 3（最后一个 segment，也必须完整等待）
         audio_dur_3 = AUDIO_DURATIONS['audio_duration_3']
+        # 如果前面的元素不再需要，先移除它们
+        # 示例：移除 element2（如果不再需要）
+        self.play(FadeOut(element2), run_time=0.5)  # FadeOut 的 run_time 必须计入 segment 3 的 animation_time
         # 创建 Segment 3 的所有 mobject
         element3 = Text("最后一个文本", font_size=24)
         element3.move_to([0, 1, 0])  # 使用剧本提供的坐标
+        # 验证元素边界（重要：创建后立即验证）
         # 执行 Segment 3 的动画
         self.play(FadeIn(element3), run_time=1.0)
-        animation_time_3 = 1.0  # Segment 3 中所有动画的总时长
+        animation_time_3 = 0.5 + 1.0  # Segment 3 中所有动画的总时长：FadeOut(0.5) + FadeIn(1.0) = 1.5 秒
         self.wait(audio_dur_3 - animation_time_3)  # 填充剩余时间（必须等待，不能省略）
         # 注意：即使这是最后一个 segment，也必须调用 self.wait() 确保画面持续到音频结束
+        # 注意：FadeOut 的 run_time 必须计入 animation_time，确保音画同步
 ```
 
 现在，根据以上剧本和时长，生成完整的 Manim 代码。

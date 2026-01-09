@@ -6,17 +6,24 @@ import sys
 def setup_logger(name: str = "formula2video", level: int = logging.INFO) -> logging.Logger:
     """配置日志系统"""
     logger = logging.getLogger(name)
+    
+    # 如果已经有处理器，直接返回（避免重复添加）
+    if logger.handlers:
+        return logger
+    
     logger.setLevel(level)
     
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(level)
-        
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    # 防止日志传播到父 logger（避免重复输出）
+    logger.propagate = False
+    
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     
     return logger
 

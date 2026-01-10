@@ -3,10 +3,12 @@ from .manim_executor import ManimExecutor
 from .tts_generator import TTSGenerator
 from .video_splitter import VideoSplitter
 from .video_merger import VideoMerger
+from .video_ending_appender import VideoEndingAppender
 
 __all__ = [
     "ManimExecutor",
     "TTSGenerator",
     "VideoSplitter",
     "VideoMerger",
+    "VideoEndingAppender",
 ]

@@ -12,6 +12,7 @@
 - 📦 **批量处理**：支持并发批量生成多个视频，提高效率
 - 🛡️ **错误隔离**：单个任务失败不影响其他任务，确保批量处理稳定性
 - 🔧 **智能 JSON 提取**：支持从 Markdown 代码块中提取 JSON，提升 LLM 响应解析成功率
+- 🎬 **视频片尾工具**：批量为视频添加片尾，自动调整尺寸匹配，支持自定义输出目录和文件前缀
 
 ## 安装
 
@@ -65,7 +66,40 @@ uv run main.py --json tasks.json --max-concurrent 3
 # -s, --style: 讲解风格，批量模式下作为默认值
 ```
 
+#### 视频片尾添加工具
+
+为指定目录下的所有视频添加片尾：
+
+```bash
+# 基本用法：为 output/videos 目录下的所有视频添加片尾，输出到默认目录
+uv run python -m tools.video_ending_appender ./output/videos ./path/to/ending.mp4
+
+# 指定输出目录
+uv run python -m tools.video_ending_appender ./output/videos ./path/to/ending.mp4 -o ./output/final_videos
+
+# 自定义文件前缀
+uv run python -m tools.video_ending_appender ./output/videos ./path/to/ending.mp4 -p "with_ending_"
+
+# 组合使用：指定输出目录和文件前缀
+uv run python -m tools.video_ending_appender ./output/videos ./path/to/ending.mp4 -o ./output/final_videos -p "final_"
+```
+
+**参数说明**：
+- `video_dir`：包含视频文件的目录路径（必需）
+- `ending_path`：片尾视频文件路径（必需）
+- `-o, --output`：输出目录（可选，默认 `./output/videos`）
+- `-p, --prefix`：输出文件名前缀（可选，默认 `"final_"`）
+
+**功能特点**：
+- 自动扫描目录中的所有视频文件（支持 .mp4, .avi, .mov, .mkv 等格式）
+- 自动调整片尾视频尺寸以匹配主视频
+- 生成新文件（保留原视频），使用前缀命名
+- 单个文件失败不影响其他文件处理
+- 显示详细的处理结果统计
+
 ### Python API 使用
+
+#### 视频生成
 
 ```python
 import asyncio
@@ -81,6 +115,30 @@ async def main():
     print(f"视频已生成: {result['video_path']}")
 
 asyncio.run(main())
+```
+
+#### 视频片尾添加
+
+```python
+from tools import VideoEndingAppender
+
+# 创建工具实例
+appender = VideoEndingAppender(output_dir="./output/videos")
+
+# 为指定目录下的所有视频添加片尾
+results = appender.add_ending_to_videos(
+    video_dir="./output/videos",
+    ending_path="./path/to/ending.mp4",
+    output_dir="./output/final_videos",  # 可选，指定输出目录
+    prefix="final_"  # 可选，自定义文件前缀
+)
+
+# 查看处理结果
+for result in results:
+    if result["success"]:
+        print(f"成功: {result['output_path']}")
+    else:
+        print(f"失败: {result['error']}")
 ```
 
 ## 工作流程

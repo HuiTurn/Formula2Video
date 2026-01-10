@@ -11,7 +11,7 @@ from tools.video_splitter import VideoSplitter
 from tools.video_merger import VideoMerger
 from models.script_model import Script
 from utils.logger import get_logger
-from utils.file_utils import save_json, cleanup_segment_files, cleanup_directory, sanitize_filename
+from utils.file_utils import save_json, cleanup_segment_files, cleanup_directory, sanitize_filename, async_save_json, async_write_file
 from config import OUTPUT_SCRIPTS_DIR, OUTPUT_MANIM_CODE_DIR, TTS_OUTPUT_DIR, OUTPUT_VIDEO_SEGMENTS_DIR
 
 logger = get_logger(__name__)
@@ -69,16 +69,16 @@ class VideoOrchestrator:
         try:
             # 1. 生成剧本
             logger.info("步骤 1/8: 生成剧本")
-            script = self.script_agent.generate(formula, duration, style)
+            script = await self.script_agent.generate(formula, duration, style)
             
-            # 保存剧本
+            # 保存剧本（异步）
             script_path = f"{OUTPUT_SCRIPTS_DIR}/{sanitize_filename(script.title)}.json"
-            save_json(script.model_dump(), script_path)
+            await async_save_json(script.model_dump(), script_path)
             logger.info(f"剧本已保存: {script_path}")
             
             # 2. 生成 TTS 文案
             logger.info("步骤 2/8: 生成 TTS 文案")
-            script = self.tts_agent.convert_script(script)
+            script = await self.tts_agent.convert_script(script)
             
             # 3. 【音频先行】立即生成音频，获取精确时长
             logger.info("步骤 3/8: 生成音频（音频先行策略）")
@@ -92,12 +92,11 @@ class VideoOrchestrator:
                 f"audio_duration_{i+1}": seg.audio_duration 
                 for i, seg in enumerate(script.segments)
             }
-            manim_code = self.manim_agent.generate(script, audio_durations)
+            manim_code = await self.manim_agent.generate(script, audio_durations)
             
-            # 保存 Manim 代码
+            # 保存 Manim 代码（异步）
             code_path = f"{OUTPUT_MANIM_CODE_DIR}/{sanitize_filename(script.title)}.py"
-            with open(code_path, 'w', encoding='utf-8') as f:
-                f.write(manim_code)
+            await async_write_file(code_path, manim_code)
             logger.info(f"Manim 代码已保存: {code_path}")
             
             # 5. 执行 Manim 代码（带错误修复）
@@ -109,7 +108,7 @@ class VideoOrchestrator:
             
             # 第一次尝试执行
             try:
-                video_path = self.manim_executor.execute_scene(
+                video_path = await self.manim_executor.execute_scene(
                     manim_code, 
                     scene_name="ProjectScene",
                     output_filename=sanitize_filename(script.title)
@@ -131,7 +130,7 @@ class VideoOrchestrator:
                     
                     # 修复代码
                     fix_agent = ManimFixAgent()
-                    manim_code = fix_agent.fix(
+                    manim_code = await fix_agent.fix(
                         code=manim_code,
                         error_message=error_message,
                         attempt=fix_attempt
@@ -144,18 +143,16 @@ class VideoOrchestrator:
                         from config import TEMP_BASE_DIR
                         task_code_dir = get_task_subdir(current_task_id, "manim_code", TEMP_BASE_DIR)
                         task_code_path = os.path.join(task_code_dir, f"{sanitize_filename(script.title)}.py")
-                        with open(task_code_path, 'w', encoding='utf-8') as f:
-                            f.write(manim_code)
+                        await async_write_file(task_code_path, manim_code)
                         logger.info(f"修复后的代码已保存: {task_code_path}")
                     
                     # 同时保存到全局目录（便于查看）
-                    with open(code_path, 'w', encoding='utf-8') as f:
-                        f.write(manim_code)
+                    await async_write_file(code_path, manim_code)
                     logger.info(f"修复后的代码已保存: {code_path}")
                     
                     # 重新尝试执行
                     try:
-                        video_path = self.manim_executor.execute_scene(
+                        video_path = await self.manim_executor.execute_scene(
                             manim_code, 
                             scene_name="ProjectScene",
                             output_filename=sanitize_filename(script.title)
@@ -173,7 +170,7 @@ class VideoOrchestrator:
             
             # 6. 切割视频片段
             logger.info("步骤 6/8: 切割视频片段")
-            video_segments = self.video_splitter.split_by_segments(video_path, script)
+            video_segments = await self.video_splitter.split_by_segments(video_path, script)
             logger.info(f"视频切割完成，共 {len(video_segments)} 个片段")
             
             # 7. 准备音频片段
@@ -185,7 +182,7 @@ class VideoOrchestrator:
             
             # 8. 合并视频和音频
             logger.info("步骤 8/8: 合并视频和音频")
-            output_path = self.video_merger.merge_with_freeze_frame(
+            output_path = await self.video_merger.merge_with_freeze_frame(
                 video_segments, 
                 audio_segments, 
                 script, 

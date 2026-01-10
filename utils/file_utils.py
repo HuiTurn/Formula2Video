@@ -3,6 +3,7 @@ import json
 import os
 import re
 import hashlib
+import aiofiles
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -172,3 +173,38 @@ def get_task_subdir(task_id: str, subdir: str, base_temp_dir: Optional[str] = No
     subdir_path = os.path.join(task_dir, subdir)
     ensure_dir(subdir_path)
     return subdir_path
+
+
+# ========== 异步文件操作函数 ==========
+
+async def async_save_json(data: Dict[str, Any], file_path: str) -> None:
+    """异步保存 JSON 文件"""
+    ensure_dir(os.path.dirname(file_path))
+    async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+        await f.write(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+async def async_load_json(file_path: str) -> Dict[str, Any]:
+    """异步加载 JSON 文件"""
+    async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+        content = await f.read()
+        return json.loads(content)
+
+
+async def async_load_file_content(file_path: str) -> str:
+    """异步加载文件内容（支持相对路径）"""
+    # 如果是相对路径，从项目根目录开始
+    if not os.path.isabs(file_path):
+        # 获取项目根目录（假设 utils 在项目根目录下）
+        project_root = Path(__file__).parent.parent
+        file_path = project_root / file_path
+    
+    async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+        return await f.read()
+
+
+async def async_write_file(file_path: str, content: str) -> None:
+    """异步写入文件"""
+    ensure_dir(os.path.dirname(file_path))
+    async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+        await f.write(content)

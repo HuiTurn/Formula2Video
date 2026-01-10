@@ -34,7 +34,7 @@ class ScriptAgent:
             ("user", prompt_text)
         ])
     
-    def generate(
+    async def generate(
         self, 
         formula: str, 
         duration: int = 60, 
@@ -50,8 +50,8 @@ class ScriptAgent:
             style=style
         )
         
-        # 调用 LLM
-        response = self.llm.invoke(messages)
+        # 调用 LLM（异步）
+        response = await self.llm.ainvoke(messages)
         content = response.content
         
         # 尝试从响应中提取 JSON

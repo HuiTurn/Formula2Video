@@ -1,5 +1,6 @@
 """视频音频合并工具（冻结帧、平滑过渡）"""
 import os
+import asyncio
 import warnings
 from typing import Optional
 from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips, ImageClip
@@ -26,19 +27,36 @@ class VideoMerger:
         self.output_dir = output_dir
         ensure_dir(output_dir)
     
-    def merge_with_freeze_frame(
+    async def merge_with_freeze_frame(
         self,
         video_segments: list[tuple[int, str, float]],
         audio_segments: list[tuple[int, str, float]],
         script: Script,
         output_filename: str = None
     ) -> str:
-        """合并视频和音频，使用冻结帧填充"""
+        """合并视频和音频，使用冻结帧填充（异步）"""
         if output_filename is None:
             output_filename = sanitize_filename(script.title) + ".mp4"
         
         output_path = os.path.join(self.output_dir, output_filename)
         
+        # 使用异步线程执行视频处理操作
+        return await asyncio.to_thread(
+            self._merge_with_freeze_frame_sync,
+            video_segments,
+            audio_segments,
+            script,
+            output_path
+        )
+    
+    def _merge_with_freeze_frame_sync(
+        self,
+        video_segments: list[tuple[int, str, float]],
+        audio_segments: list[tuple[int, str, float]],
+        script: Script,
+        output_path: str
+    ) -> str:
+        """同步的视频合并实现（在后台线程中执行）"""
         # 1. 按 segment_id 排序
         video_segments = sorted(video_segments, key=lambda x: x[0])
         audio_segments = sorted(audio_segments, key=lambda x: x[0])

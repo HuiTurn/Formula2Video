@@ -34,7 +34,7 @@ class ManimAgent:
             ("user", prompt_text)
         ])
     
-    def generate(
+    async def generate(
         self, 
         script: Script, 
         audio_durations: dict
@@ -57,8 +57,8 @@ class ManimAgent:
             audio_durations=audio_durations_text
         )
         
-        # 调用 LLM
-        response = self.llm.invoke(messages)
+        # 调用 LLM（异步）
+        response = await self.llm.ainvoke(messages)
         code = response.content
         
         # 提取代码块（如果有 markdown 代码块）

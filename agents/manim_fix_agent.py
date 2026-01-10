@@ -142,7 +142,7 @@ class ManimFixAgent:
             ("user", prompt_text)
         ])
     
-    def fix(
+    async def fix(
         self,
         code: str,
         error_message: str,
@@ -165,8 +165,8 @@ class ManimFixAgent:
             api_info=api_info_text
         )
         
-        # 调用 LLM
-        response = self.llm.invoke(messages)
+        # 调用 LLM（异步）
+        response = await self.llm.ainvoke(messages)
         fixed_code = response.content
         
         # 提取代码块（如果有 markdown 代码块）

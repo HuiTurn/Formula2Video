@@ -34,7 +34,7 @@ class TTSAgent:
             ("user", prompt_text)
         ])
     
-    def convert_script(self, script: Script) -> Script:
+    async def convert_script(self, script: Script) -> Script:
         """将剧本中的讲解文案转换为 TTS 友好的文本"""
         logger.info(f"开始转换 TTS 文案: {script.title}")
         
@@ -46,8 +46,8 @@ class TTSAgent:
             script_json=script_json
         )
         
-        # 调用 LLM
-        response = self.llm.invoke(messages)
+        # 调用 LLM（异步）
+        response = await self.llm.ainvoke(messages)
         content = response.content
         
         # 提取 JSON

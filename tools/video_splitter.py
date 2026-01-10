@@ -1,5 +1,6 @@
 """视频切割工具（根据时间标记）"""
 import os
+import asyncio
 import warnings
 import numpy as np
 from typing import Optional
@@ -31,7 +32,7 @@ class VideoSplitter:
             self.output_dir = output_dir
             ensure_dir(output_dir)
     
-    def split_by_segments(
+    async def split_by_segments(
         self, 
         video_path: str, 
         script: Script
@@ -55,6 +56,15 @@ class VideoSplitter:
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"视频文件不存在: {video_path}")
         
+        # 使用异步线程执行视频处理操作
+        return await asyncio.to_thread(self._split_by_segments_sync, video_path, script)
+    
+    def _split_by_segments_sync(
+        self, 
+        video_path: str, 
+        script: Script
+    ) -> list[tuple[int, str, float]]:
+        """同步的视频切割实现（在后台线程中执行）"""
         video = VideoFileClip(video_path)
         segments = []
         

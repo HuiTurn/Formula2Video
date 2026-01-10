@@ -1,5 +1,6 @@
 """Manim 代码执行工具（单 Scene 支持）"""
 import subprocess
+import asyncio
 import os
 from typing import Optional
 from utils.validation import LaTeXValidator
@@ -96,19 +97,19 @@ class ManimExecutor:
         
         return error_info
     
-    def execute_scene(
+    async def execute_scene(
         self, 
         code: str, 
         scene_name: str = "ProjectScene",
         output_filename: str = None
     ) -> str:
-        """执行单个 Scene，生成视频"""
+        """执行单个 Scene，生成视频（异步）"""
         # 1. 验证代码
         is_valid, errors = self.validate_code(code)
         if not is_valid:
             raise ValueError(f"代码验证失败: {errors}")
         
-        # 2. 保存代码到临时文件
+        # 2. 保存代码到临时文件（异步）
         # 如果有 task_id，使用任务专属目录；否则使用默认目录（向后兼容）
         if self.task_id:
             manim_code_dir = get_task_subdir(self.task_id, "manim_code", TEMP_BASE_DIR)
@@ -117,8 +118,8 @@ class ManimExecutor:
             temp_file = os.path.join("./output/manim_code", f"{scene_name.lower()}_temp.py")
             ensure_dir(os.path.dirname(temp_file))
         
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            f.write(code)
+        # 使用异步文件写入
+        await asyncio.to_thread(self._write_file, temp_file, code)
         
         logger.info(f"Manim 代码已保存到: {temp_file}")
         
@@ -134,7 +135,7 @@ class ManimExecutor:
         }
         quality_flag = quality_map.get(self.quality, "-qm")
         
-        # 5. 执行 manim 命令
+        # 5. 执行 manim 命令（异步）
         cmd = [
             "manim",
             quality_flag,
@@ -143,12 +144,24 @@ class ManimExecutor:
         ]
         
         logger.info(f"执行 Manim 命令: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
         
-        if result.returncode != 0:
-            error_info = self.extract_error_info(result.stderr)
+        # 使用异步子进程执行
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=os.getcwd()
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            stderr_text = stderr.decode('utf-8') if stderr else ""
+            error_info = self.extract_error_info(stderr_text)
             logger.error(f"Manim 执行失败: {error_info['error_type']} - {error_info['error_message']}")
-            raise RuntimeError(f"Manim 执行失败: {result.stderr}")
+            raise RuntimeError(f"Manim 执行失败: {stderr_text}")
+        
+        stdout_text = stdout.decode('utf-8') if stdout else ""
         
         # 6. 查找生成的视频文件
         # 从临时文件名提取基础名称（去掉 _temp.py 后缀）
@@ -231,7 +244,6 @@ class ManimExecutor:
         
         # 从 stdout 中提取路径信息（改进的解析）
         import re
-        stdout = result.stdout
         
         # 尝试多种格式
         path_patterns = [
@@ -243,7 +255,7 @@ class ManimExecutor:
         ]
         
         for pattern in path_patterns:
-            matches = re.findall(pattern, stdout, re.MULTILINE)
+            matches = re.findall(pattern, stdout_text, re.MULTILINE)
             for match in matches:
                 video_path = match.strip().strip("'\"")
                 # 清理路径中的换行符（保留空格，因为路径可能包含空格）
@@ -274,5 +286,10 @@ class ManimExecutor:
             f"尝试的目录: {possible_dirs[:10]}...\n"
             f"临时文件名: {temp_basename}\n"
             f"Scene 名称: {scene_name}\n"
-            f"Manim 输出: {stdout[:1000]}"
+            f"Manim 输出: {stdout_text[:1000]}"
         )
+    
+    def _write_file(self, file_path: str, content: str) -> None:
+        """同步文件写入辅助方法（用于 asyncio.to_thread）"""
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)

@@ -4,10 +4,7 @@
 
 ## 示例视频
 
-<video width="100%" controls>
-  <source src="example/videos/example.mp4" type="video/mp4">
-  您的浏览器不支持视频标签。
-</video>
+[![60秒看懂长方形面积](./example/example.jpg)](https://www.bilibili.com/video/BV1hGrMBrEwB/)
 
 ## 功能特点
 

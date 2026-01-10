@@ -2,6 +2,13 @@
 
 基于 LangChain 的多 Agent 系统，实现自动化生成数学公式教学视频。
 
+## 示例视频
+
+<video width="100%" controls>
+  <source src="example/videos/example.mp4" type="video/mp4">
+  您的浏览器不支持视频标签。
+</video>
+
 ## 功能特点
 
 - 🎬 **三步走流程**：剧本生成 → TTS 文案转换 → Manim 代码生成
